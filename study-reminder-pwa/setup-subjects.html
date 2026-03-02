@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#4CAF50">
+  <title>教科設定 - StudyCat</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .subject-setup-item {
+      display: flex;
+      align-items: center;
+      padding: 12px;
+      margin-bottom: 12px;
+      background: var(--card-bg);
+      border-radius: 12px;
+      border: 2px solid var(--border-color);
+    }
+    .subject-setup-item.active {
+      border-color: var(--primary-color);
+    }
+    .subject-setup-color {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      margin-right: 12px;
+      flex-shrink: 0;
+    }
+    .subject-setup-info {
+      flex: 1;
+    }
+    .subject-setup-name {
+      font-weight: 500;
+      font-size: 15px;
+    }
+    .subject-setup-category {
+      font-size: 11px;
+      color: var(--text-light);
+    }
+    .weight-selector {
+      display: flex;
+      gap: 4px;
+    }
+    .weight-btn {
+      padding: 6px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: white;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .weight-btn.selected {
+      background: var(--primary-color);
+      color: white;
+      border-color: var(--primary-color);
+    }
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-light);
+      margin: 20px 0 12px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <h1>教科設定</h1>
+    <div class="header-sub">重要度を設定するにゃ！</div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content" style="padding-bottom: 100px;">
+    <div class="card">
+      <p class="text-muted" style="font-size: 13px; margin-bottom: 16px;">
+        各教科の重要度（重み）を設定してね。<br>
+        重要度が高いほど、勉強時間が多く配分されるにゃ。
+      </p>
+
+      <div class="section-title">📚 主要5教科</div>
+      <div id="mainSubjects"></div>
+
+      <div class="section-title">🎨 実技4教科</div>
+      <div id="subSubjects"></div>
+    </div>
+
+    <button id="saveBtn" class="btn btn-primary btn-block btn-lg">
+      設定完了 ✓
+    </button>
+  </main>
+
+  <!-- Scripts -->
+  <script src="js/storage.js"></script>
+  <script src="js/calculator.js"></script>
+  <script src="js/cat.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    // Default subjects
+    const defaultSubjects = [
+      // Main 5
+      { name: '数学', color: '#FF5733', category: 'main', defaultWeight: 'high' },
+      { name: '英語', color: '#3498DB', category: 'main', defaultWeight: 'high' },
+      { name: '国語', color: '#2ECC71', category: 'main', defaultWeight: 'medium' },
+      { name: '理科', color: '#9B59B6', category: 'main', defaultWeight: 'medium' },
+      { name: '社会', color: '#F39C12', category: 'main', defaultWeight: 'medium' },
+      // Sub 4
+      { name: '音楽', color: '#E91E63', category: 'sub', defaultWeight: 'low' },
+      { name: '美術', color: '#00BCD4', category: 'sub', defaultWeight: 'low' },
+      { name: '保健体育', color: '#4CAF50', category: 'sub', defaultWeight: 'low' },
+      { name: '技術・家庭', color: '#795548', category: 'sub', defaultWeight: 'low' }
+    ];
+
+    const weightValues = { low: 2, medium: 5, high: 7 };
+    const subjectWeights = {};
+
+    function renderSubjects() {
+      const mainContainer = document.getElementById('mainSubjects');
+      const subContainer = document.getElementById('subSubjects');
+
+      mainContainer.innerHTML = '';
+      subContainer.innerHTML = '';
+
+      defaultSubjects.forEach((subject, index) => {
+        subjectWeights[index] = subjectWeights[index] || subject.defaultWeight;
+
+        const html = `
+          <div class="subject-setup-item" data-index="${index}">
+            <div class="subject-setup-color" style="background-color: ${subject.color}"></div>
+            <div class="subject-setup-info">
+              <div class="subject-setup-name">${subject.name}</div>
+            </div>
+            <div class="weight-selector">
+              <button type="button" class="weight-btn ${subjectWeights[index] === 'low' ? 'selected' : ''}"
+                      onclick="setWeight(${index}, 'low')">低</button>
+              <button type="button" class="weight-btn ${subjectWeights[index] === 'medium' ? 'selected' : ''}"
+                      onclick="setWeight(${index}, 'medium')">中</button>
+              <button type="button" class="weight-btn ${subjectWeights[index] === 'high' ? 'selected' : ''}"
+                      onclick="setWeight(${index}, 'high')">高</button>
+            </div>
+          </div>
+        `;
+
+        if (subject.category === 'main') {
+          mainContainer.innerHTML += html;
+        } else {
+          subContainer.innerHTML += html;
+        }
+      });
+    }
+
+    function setWeight(index, weight) {
+      subjectWeights[index] = weight;
+      renderSubjects();
+    }
+
+    document.getElementById('saveBtn').addEventListener('click', async () => {
+      await StorageManager.init();
+
+      // Create subjects array
+      const subjects = defaultSubjects.map((subject, index) => ({
+        id: StorageManager.generateId(),
+        name: subject.name,
+        color: subject.color,
+        weight: weightValues[subjectWeights[index]],
+        totalPlanned: 0,
+        totalActual: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }));
+
+      // Save subjects
+      await StorageManager.save(StorageManager.STORES.SUBJECTS, subjects);
+
+      // Initialize cat state
+      const catState = CatSystem.getDefaultState();
+      await StorageManager.save(StorageManager.STORES.CAT, catState);
+
+      // Go to home
+      window.location.href = 'index.html';
+    });
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', renderSubjects);
+  </script>
+</body>
+</html>

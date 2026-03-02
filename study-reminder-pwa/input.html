@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#4CAF50">
+  <title>勉強記録 - StudyCat</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <h1>勉強記録</h1>
+    <div class="header-sub" id="headerDate">今日の記録</div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Cat Message -->
+    <div class="card">
+      <div class="cat-container" style="padding: 12px 0;">
+        <div class="cat-image" style="font-size: 48px;" id="catEmoji">😺</div>
+        <div class="cat-message" id="catMessage">何を勉強したにゃ？</div>
+      </div>
+    </div>
+
+    <!-- Subject Selection -->
+    <div class="card">
+      <div class="card-title">📚 教科を選択</div>
+      <div class="subject-buttons" id="subjectButtons">
+        <!-- Subject buttons will be inserted here -->
+      </div>
+    </div>
+
+    <!-- Time Input -->
+    <div class="card" id="timeInputCard" style="display: none;">
+      <div class="card-title">⏱️ 勉強時間</div>
+
+      <div class="time-input-container">
+        <button type="button" class="time-btn" onclick="adjustTime(-5)">−</button>
+        <div class="time-display">
+          <span id="timeValue">30</span>
+          <span class="time-unit">分</span>
+        </div>
+        <button type="button" class="time-btn" onclick="adjustTime(5)">+</button>
+      </div>
+
+      <div class="quick-times">
+        <button type="button" class="quick-time-btn" onclick="setTime(15)">15分</button>
+        <button type="button" class="quick-time-btn" onclick="setTime(30)">30分</button>
+        <button type="button" class="quick-time-btn" onclick="setTime(45)">45分</button>
+        <button type="button" class="quick-time-btn" onclick="setTime(60)">60分</button>
+      </div>
+
+      <button type="button" class="btn btn-primary btn-block mt-16" onclick="saveLog()">
+        記録する ✓
+      </button>
+    </div>
+
+    <!-- Today's Summary -->
+    <div class="card">
+      <div class="card-title">📝 今日の記録</div>
+      <div id="todaySummary">
+        <!-- Today's logs will be shown here -->
+      </div>
+    </div>
+  </main>
+
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav">
+    <a href="index.html" class="nav-item">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-label">ホーム</span>
+    </a>
+    <a href="input.html" class="nav-item active">
+      <span class="nav-icon">✏️</span>
+      <span class="nav-label">記録</span>
+    </a>
+    <a href="progress.html" class="nav-item">
+      <span class="nav-icon">📊</span>
+      <span class="nav-label">進捗</span>
+    </a>
+    <a href="settings.html" class="nav-item">
+      <span class="nav-icon">⚙️</span>
+      <span class="nav-label">設定</span>
+    </a>
+  </nav>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Level Up Modal -->
+  <div class="modal-overlay" id="levelUpModal">
+    <div class="modal">
+      <div class="modal-title">🎉 レベルアップ！</div>
+      <div class="cat-container" style="padding: 0;">
+        <div class="cat-image level-up-animation" style="font-size: 64px;">😻</div>
+        <div class="cat-message" id="levelUpMessage">レベル2になったにゃ！</div>
+      </div>
+      <div class="modal-buttons">
+        <button class="btn btn-primary" onclick="closeLevelUpModal()">やったー！</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/storage.js"></script>
+  <script src="js/calculator.js"></script>
+  <script src="js/cat.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    let selectedSubjectId = null;
+    let inputMinutes = 30;
+
+    async function initInputPage() {
+      await App.init();
+
+      // Update header date
+      const today = new Date();
+      const dateStr = `${today.getMonth() + 1}月${today.getDate()}日`;
+      document.getElementById('headerDate').textContent = dateStr;
+
+      // Render subject buttons
+      renderSubjectButtons();
+
+      // Render today's summary
+      renderTodaySummary();
+
+      // Update cat
+      document.getElementById('catEmoji').textContent = CatSystem.getEmoji(App.catState.currentState);
+    }
+
+    function renderSubjectButtons() {
+      const container = document.getElementById('subjectButtons');
+      const todayData = App.getTodayData();
+
+      container.innerHTML = App.subjects.map(subject => {
+        const plan = todayData.todayPlans.find(p => p.subject.id === subject.id);
+        const actual = plan ? plan.actualMinutes : 0;
+        const planned = plan ? plan.plannedMinutes : 0;
+
+        return `
+          <div class="subject-btn ${selectedSubjectId === subject.id ? 'selected' : ''}"
+               onclick="selectSubject('${subject.id}')"
+               style="border-left: 4px solid ${subject.color};">
+            <div class="subject-btn-name">${subject.name}</div>
+            <div class="subject-btn-time">${actual}/${planned}分</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function selectSubject(subjectId) {
+      selectedSubjectId = subjectId;
+      renderSubjectButtons();
+      document.getElementById('timeInputCard').style.display = 'block';
+
+      const subject = App.subjects.find(s => s.id === subjectId);
+      document.getElementById('catMessage').textContent = `${subject.name}を勉強するにゃ！`;
+    }
+
+    function adjustTime(delta) {
+      inputMinutes = Math.max(5, Math.min(180, inputMinutes + delta));
+      document.getElementById('timeValue').textContent = inputMinutes;
+    }
+
+    function setTime(minutes) {
+      inputMinutes = minutes;
+      document.getElementById('timeValue').textContent = inputMinutes;
+    }
+
+    async function saveLog() {
+      if (!selectedSubjectId) {
+        showToast('教科を選択してにゃ');
+        return;
+      }
+
+      const result = await App.addStudyLog(selectedSubjectId, inputMinutes);
+
+      // Show success
+      showToast('記録したにゃ！✨');
+
+      // Check for level up
+      if (result && result.leveledUp) {
+        document.getElementById('levelUpMessage').textContent =
+          `レベル${result.newLevel}になったにゃ！`;
+        document.getElementById('levelUpModal').classList.add('active');
+      }
+
+      // Reset
+      selectedSubjectId = null;
+      inputMinutes = 30;
+      document.getElementById('timeValue').textContent = inputMinutes;
+      document.getElementById('timeInputCard').style.display = 'none';
+      document.getElementById('catMessage').textContent = '頑張ったにゃ！✨';
+      document.getElementById('catEmoji').textContent = '😸';
+
+      // Re-render
+      renderSubjectButtons();
+      renderTodaySummary();
+    }
+
+    function renderTodaySummary() {
+      const container = document.getElementById('todaySummary');
+      const todayData = App.getTodayData();
+
+      if (todayData.totalActual === 0) {
+        container.innerHTML = '<p class="text-muted text-center">まだ記録がないにゃ</p>';
+        return;
+      }
+
+      const summary = todayData.todayPlans
+        .filter(p => p.actualMinutes > 0)
+        .map(p => `
+          <div class="subject-item">
+            <div class="subject-color" style="background-color: ${p.subject.color}"></div>
+            <div class="subject-info">
+              <div class="subject-name">${p.subject.name}</div>
+              <div class="subject-time">${Calculator.formatMinutes(p.actualMinutes)}</div>
+            </div>
+            <div class="subject-status">${p.completed ? '✅' : ''}</div>
+          </div>
+        `).join('');
+
+      const total = `
+        <div style="text-align: center; padding: 12px; border-top: 1px solid var(--border-color); margin-top: 8px;">
+          <span class="text-muted">合計:</span>
+          <strong>${Calculator.formatMinutes(todayData.totalActual)}</strong>
+        </div>
+      `;
+
+      container.innerHTML = summary + total;
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    function closeLevelUpModal() {
+      document.getElementById('levelUpModal').classList.remove('active');
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', initInputPage);
+  </script>
+</body>
+</html>
