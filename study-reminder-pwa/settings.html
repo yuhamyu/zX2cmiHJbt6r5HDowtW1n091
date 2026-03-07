@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#4CAF50">
+  <title>設定 - StudyCat</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <h1>設定</h1>
+    <div class="header-sub">アプリの設定にゃ</div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Exam Management -->
+    <div class="card">
+      <div class="card-title">📝 テスト管理</div>
+      <div id="examsSummary">
+        <!-- Exam summary will be inserted here -->
+      </div>
+      <a href="exams.html" class="btn btn-primary btn-block mt-16">
+        テストを管理
+      </a>
+    </div>
+
+    <!-- Current Settings -->
+    <div class="card">
+      <div class="card-title">📅 基本設定</div>
+      <ul class="settings-list">
+        <li class="settings-item">
+          <span class="settings-label">塾の日</span>
+          <span class="settings-value" id="cramDays">--</span>
+        </li>
+        <li class="settings-item">
+          <span class="settings-label">開始日</span>
+          <span class="settings-value" id="startDate">--</span>
+        </li>
+      </ul>
+      <button class="btn btn-secondary btn-block mt-16" onclick="goToSetup()">
+        設定を変更
+      </button>
+    </div>
+
+    <!-- Subjects -->
+    <div class="card">
+      <div class="card-title">📚 教科設定</div>
+      <div id="subjectsList"></div>
+      <button class="btn btn-secondary btn-block mt-16" onclick="goToSubjectSetup()">
+        教科を編集
+      </button>
+    </div>
+
+    <!-- Data Management -->
+    <div class="card">
+      <div class="card-title">💾 データ管理</div>
+      <p class="text-muted" style="font-size: 13px; margin-bottom: 16px;">
+        データはこの端末に保存されています。<br>
+        定期的にバックアップすることをおすすめします。
+      </p>
+
+      <button class="btn btn-primary btn-block mb-16" onclick="exportBackup()">
+        📤 バックアップをダウンロード
+      </button>
+
+      <label class="btn btn-secondary btn-block" style="cursor: pointer;">
+        📥 バックアップから復元
+        <input type="file" accept=".json" style="display: none;" onchange="importBackup(this)">
+      </label>
+    </div>
+
+    <!-- Cat Status -->
+    <div class="card">
+      <div class="card-title">🐱 にゃんこステータス</div>
+      <ul class="settings-list">
+        <li class="settings-item">
+          <span class="settings-label">レベル</span>
+          <span class="settings-value" id="catLevel">--</span>
+        </li>
+        <li class="settings-item">
+          <span class="settings-label">総勉強時間</span>
+          <span class="settings-value" id="totalStudyTime">--</span>
+        </li>
+        <li class="settings-item">
+          <span class="settings-label">連続日数</span>
+          <span class="settings-value" id="streakDays">--</span>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Danger Zone -->
+    <div class="card" style="border: 2px solid var(--danger-color);">
+      <div class="card-title" style="color: var(--danger-color);">⚠️ 危険な操作</div>
+      <p class="text-muted" style="font-size: 13px; margin-bottom: 16px;">
+        この操作は取り消せません。実行前にバックアップを取ることをおすすめします。
+      </p>
+      <button class="btn btn-block" style="background: var(--danger-color); color: white;"
+              onclick="confirmReset()">
+        全データを削除
+      </button>
+    </div>
+
+    <!-- App Info -->
+    <div class="card">
+      <div class="card-title">ℹ️ アプリ情報</div>
+      <ul class="settings-list">
+        <li class="settings-item">
+          <span class="settings-label">バージョン</span>
+          <span class="settings-value">1.0.0</span>
+        </li>
+        <li class="settings-item">
+          <span class="settings-label">ストレージ</span>
+          <span class="settings-value">IndexedDB</span>
+        </li>
+      </ul>
+    </div>
+  </main>
+
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav">
+    <a href="index.html" class="nav-item">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-label">ホーム</span>
+    </a>
+    <a href="timer.html" class="nav-item">
+      <span class="nav-icon">⏱️</span>
+      <span class="nav-label">タイマー</span>
+    </a>
+    <a href="progress.html" class="nav-item">
+      <span class="nav-icon">📊</span>
+      <span class="nav-label">進捗</span>
+    </a>
+    <a href="settings.html" class="nav-item active">
+      <span class="nav-icon">⚙️</span>
+      <span class="nav-label">設定</span>
+    </a>
+  </nav>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Confirm Modal -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal">
+      <div class="modal-title">本当に削除しますか？</div>
+      <p class="text-center text-muted" style="margin-bottom: 16px;">
+        すべての学習記録、設定が削除されます。<br>
+        この操作は取り消せません。
+      </p>
+      <div class="modal-buttons">
+        <button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+        <button class="btn" style="background: var(--danger-color); color: white;"
+                onclick="executeReset()">削除する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/storage.js"></script>
+  <script src="js/calculator.js"></script>
+  <script src="js/cat.js"></script>
+  <script src="js/exam.js"></script>
+  <script src="js/migration.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    async function initSettingsPage() {
+      await App.init();
+
+      // Render exams summary
+      renderExamsSummary();
+
+      // Basic settings
+      document.getElementById('startDate').textContent = App.config.startDate || '未設定';
+
+      // Cram school days
+      const dayMap = {
+        monday: '月', tuesday: '火', wednesday: '水', thursday: '木',
+        friday: '金', saturday: '土', sunday: '日'
+      };
+      const cramDays = (App.config.cramSchoolDays || []).map(d => dayMap[d]).join('・');
+      document.getElementById('cramDays').textContent = cramDays || 'なし';
+
+      // Subjects
+      renderSubjects();
+
+      // Cat status
+      document.getElementById('catLevel').textContent = `Lv.${App.catState.level || 1}`;
+      const totalMinutes = App.catState.totalStudyMinutes || 0;
+      document.getElementById('totalStudyTime').textContent = Calculator.formatMinutes(totalMinutes);
+      document.getElementById('streakDays').textContent = `${App.catState.streakDays || 0}日`;
+    }
+
+    function renderExamsSummary() {
+      const container = document.getElementById('examsSummary');
+
+      if (!App.exams || App.exams.length === 0) {
+        container.innerHTML = `
+          <p class="text-muted" style="text-align: center; padding: 16px 0;">
+            テストが登録されていません
+          </p>
+        `;
+        return;
+      }
+
+      // Show up to 3 upcoming exams
+      const upcomingExams = App.exams
+        .filter(exam => ExamManager.calculateStatus(exam) !== 'completed')
+        .sort((a, b) => {
+          const daysA = ExamManager.getDaysUntilExam(a) ?? Infinity;
+          const daysB = ExamManager.getDaysUntilExam(b) ?? Infinity;
+          return daysA - daysB;
+        })
+        .slice(0, 3);
+
+      if (upcomingExams.length === 0) {
+        container.innerHTML = `
+          <p class="text-muted" style="text-align: center; padding: 16px 0;">
+            予定されているテストはありません
+          </p>
+        `;
+        return;
+      }
+
+      container.innerHTML = upcomingExams.map(exam => {
+        const icon = ExamManager.TYPE_ICONS[exam.type] || '📝';
+        const days = ExamManager.getDaysUntilExam(exam);
+        const daysText = days !== null ? `${days}日` : '日付未定';
+        const status = ExamManager.calculateStatus(exam);
+        const isReview = status === 'review';
+
+        return `
+          <div class="settings-item">
+            <span class="settings-label">${icon} ${exam.name}</span>
+            <span class="settings-value ${isReview ? 'text-accent' : ''}">
+              ${isReview ? '復習中' : daysText}
+            </span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderSubjects() {
+      const container = document.getElementById('subjectsList');
+      container.innerHTML = App.subjects.map(subject => `
+        <div class="subject-item">
+          <div class="subject-color" style="background-color: ${subject.color}"></div>
+          <div class="subject-info">
+            <div class="subject-name">${subject.name}</div>
+          </div>
+          <div class="text-muted" style="font-size: 12px;">
+            重み: ${subject.weight}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function goToSetup() {
+      window.location.href = 'setup.html';
+    }
+
+    function goToSubjectSetup() {
+      window.location.href = 'setup-subjects.html';
+    }
+
+    async function exportBackup() {
+      await App.exportBackup();
+      showToast('バックアップをダウンロードしました');
+    }
+
+    async function importBackup(input) {
+      const file = input.files[0];
+      if (!file) return;
+
+      try {
+        await App.importBackup(file);
+        showToast('復元しました！');
+        setTimeout(() => location.reload(), 1000);
+      } catch (error) {
+        showToast('復元に失敗しました');
+        console.error(error);
+      }
+    }
+
+    function confirmReset() {
+      document.getElementById('confirmModal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('confirmModal').classList.remove('active');
+    }
+
+    async function executeReset() {
+      await App.resetAllData();
+      closeModal();
+      showToast('データを削除しました');
+      setTimeout(() => window.location.href = 'setup.html', 1000);
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', initSettingsPage);
+  </script>
+</body>
+</html>
