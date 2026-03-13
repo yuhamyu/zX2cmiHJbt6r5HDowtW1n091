@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#4CAF50">
+  <title>学習の振り返り - StudyCat</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <h1>学習の振り返り</h1>
+    <div class="header-sub">勉強時間を記録するにゃ</div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Cat Message -->
+    <div class="card">
+      <div class="cat-container" style="padding: 12px 0;">
+        <div class="cat-image" style="font-size: 48px;" id="catEmoji">😸</div>
+        <div class="cat-message" id="catMessage">お疲れ様にゃ！何を勉強したか教えてにゃ</div>
+      </div>
+    </div>
+
+    <!-- Total Time Adjustment -->
+    <div class="card">
+      <div class="card-title">⏱️ 総学習時間</div>
+      <div class="time-input-container">
+        <button type="button" class="time-btn" onclick="adjustTotalTime(-5)">−5</button>
+        <button type="button" class="time-btn" onclick="adjustTotalTime(-1)">−1</button>
+        <div class="time-display">
+          <span id="totalTimeValue">0</span>
+          <span class="time-unit">分</span>
+        </div>
+        <button type="button" class="time-btn" onclick="adjustTotalTime(1)">+1</button>
+        <button type="button" class="time-btn" onclick="adjustTotalTime(5)">+5</button>
+      </div>
+      <p class="text-muted text-center" style="font-size: 12px; margin-top: 8px;">
+        ※一時停止忘れなどで調整できます
+      </p>
+    </div>
+
+    <!-- Subject Distribution -->
+    <div class="card">
+      <div class="card-title">📚 科目ごとの時間</div>
+      <div id="subjectDistribution">
+        <!-- Subject items will be inserted here -->
+      </div>
+
+      <!-- Distribution Summary -->
+      <div class="distribution-summary" id="distributionSummary">
+        <span>配分合計:</span>
+        <span id="distributedTotal">0分</span>
+        <span>/</span>
+        <span id="totalTarget">0分</span>
+        <span id="distributionStatus">❌</span>
+      </div>
+    </div>
+
+    <!-- Bonus Info -->
+    <div class="card" id="bonusCard" style="display: none;">
+      <div class="card-title">🎁 ボーナス</div>
+      <div class="bonus-info">
+        <div class="bonus-item">
+          <span class="bonus-label">目標超過ボーナス</span>
+          <span class="bonus-value" id="goalBonus">+0 XP</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Submit Button -->
+    <button type="button" class="btn btn-primary btn-block btn-lg" id="submitBtn" onclick="submitReview()" disabled>
+      記録する ✓
+    </button>
+  </main>
+
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav">
+    <a href="index.html" class="nav-item">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-label">ホーム</span>
+    </a>
+    <a href="timer.html" class="nav-item">
+      <span class="nav-icon">⏱️</span>
+      <span class="nav-label">タイマー</span>
+    </a>
+    <a href="progress.html" class="nav-item">
+      <span class="nav-icon">📊</span>
+      <span class="nav-label">進捗</span>
+    </a>
+    <a href="settings.html" class="nav-item">
+      <span class="nav-icon">⚙️</span>
+      <span class="nav-label">設定</span>
+    </a>
+  </nav>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Level Up Modal -->
+  <div class="modal-overlay" id="levelUpModal">
+    <div class="modal">
+      <div class="modal-title">🎉 レベルアップ！</div>
+      <div class="cat-container" style="padding: 0;">
+        <div class="cat-image level-up-animation" style="font-size: 64px;">😻</div>
+        <div class="cat-message" id="levelUpMessage">レベル2になったにゃ！</div>
+      </div>
+      <div class="modal-buttons">
+        <button class="btn btn-primary" onclick="closeLevelUpModal()">やったー！</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/storage.js"></script>
+  <script src="js/calculator.js"></script>
+  <script src="js/cat.js"></script>
+  <script src="js/timer.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    let sessionData = null;
+    let totalMinutes = 0;
+    let distributions = {}; // { subjectId: minutes }
+
+    async function initReviewPage() {
+      await App.init();
+
+      // Get session data from sessionStorage
+      const sessionStr = sessionStorage.getItem('studycat_timerSession');
+      if (!sessionStr) {
+        showToast('セッションデータがないにゃ');
+        setTimeout(() => window.location.href = 'timer.html', 1500);
+        return;
+      }
+
+      sessionData = JSON.parse(sessionStr);
+      totalMinutes = Math.round(sessionData.totalSeconds / 60);
+
+      // Initialize distributions (all zero)
+      App.subjects.forEach(subject => {
+        distributions[subject.id] = 0;
+      });
+
+      // Render
+      document.getElementById('totalTimeValue').textContent = totalMinutes;
+      renderSubjectDistribution();
+      updateDistributionStatus();
+      updateBonusDisplay();
+    }
+
+    function renderSubjectDistribution() {
+      const container = document.getElementById('subjectDistribution');
+
+      container.innerHTML = App.subjects.map(subject => {
+        const minutes = distributions[subject.id] || 0;
+        return `
+          <div class="subject-distribution-item">
+            <div class="subject-distribution-header">
+              <div class="subject-color" style="background-color: ${subject.color}"></div>
+              <span class="subject-name">${subject.name}</span>
+            </div>
+            <div class="subject-distribution-controls">
+              <button type="button" class="time-btn-small" onclick="adjustSubjectTime('${subject.id}', -5)">−5</button>
+              <button type="button" class="time-btn-small" onclick="adjustSubjectTime('${subject.id}', -1)">−1</button>
+              <span class="subject-time-value">${minutes}分</span>
+              <button type="button" class="time-btn-small" onclick="adjustSubjectTime('${subject.id}', 1)">+1</button>
+              <button type="button" class="time-btn-small" onclick="adjustSubjectTime('${subject.id}', 5)">+5</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function adjustTotalTime(delta) {
+      totalMinutes = Math.max(1, totalMinutes + delta);
+      document.getElementById('totalTimeValue').textContent = totalMinutes;
+      updateDistributionStatus();
+      updateBonusDisplay();
+    }
+
+    function adjustSubjectTime(subjectId, delta) {
+      const currentTotal = Object.values(distributions).reduce((sum, m) => sum + m, 0);
+      const newValue = (distributions[subjectId] || 0) + delta;
+
+      // Can't go below 0
+      if (newValue < 0) return;
+
+      // Can't exceed total
+      if (currentTotal + delta > totalMinutes && delta > 0) return;
+
+      distributions[subjectId] = newValue;
+      renderSubjectDistribution();
+      updateDistributionStatus();
+    }
+
+    function updateDistributionStatus() {
+      const distributedTotal = Object.values(distributions).reduce((sum, m) => sum + m, 0);
+
+      document.getElementById('distributedTotal').textContent = distributedTotal + '分';
+      document.getElementById('totalTarget').textContent = totalMinutes + '分';
+
+      const isValid = distributedTotal === totalMinutes;
+      document.getElementById('distributionStatus').textContent = isValid ? '✓' : '❌';
+      document.getElementById('distributionStatus').style.color = isValid ? 'var(--primary-color)' : 'var(--danger-color)';
+
+      document.getElementById('submitBtn').disabled = !isValid;
+    }
+
+    function updateBonusDisplay() {
+      const todayData = App.getTodayData();
+      const goalMinutes = todayData.totalPlanned;
+      const recordedMinutes = todayData.totalActual;
+      const newTotalMinutes = recordedMinutes + totalMinutes;
+
+      if (newTotalMinutes > goalMinutes) {
+        const excessMinutes = newTotalMinutes - goalMinutes;
+        const bonusXP = Calculator.calculateGoalBonus(excessMinutes);
+
+        document.getElementById('bonusCard').style.display = 'block';
+        document.getElementById('goalBonus').textContent = `+${bonusXP} XP`;
+      } else {
+        document.getElementById('bonusCard').style.display = 'none';
+      }
+    }
+
+    async function submitReview() {
+      if (!sessionData) return;
+
+      const distributedTotal = Object.values(distributions).reduce((sum, m) => sum + m, 0);
+      if (distributedTotal !== totalMinutes) {
+        showToast('配分が合計と一致しないにゃ');
+        return;
+      }
+
+      // Calculate bonus XP
+      const todayData = App.getTodayData();
+      const goalMinutes = todayData.totalPlanned;
+      const recordedMinutes = todayData.totalActual;
+      const newTotalMinutes = recordedMinutes + totalMinutes;
+      let bonusXP = 0;
+
+      if (newTotalMinutes > goalMinutes) {
+        const excessMinutes = newTotalMinutes - goalMinutes;
+        bonusXP = Calculator.calculateGoalBonus(excessMinutes);
+      }
+
+      // Create timer session record
+      const timerSession = {
+        id: sessionData.sessionId,
+        date: Calculator.getTodayString(),
+        startTime: sessionData.startTime,
+        endTime: sessionData.endTime,
+        totalSeconds: sessionData.totalSeconds,
+        adjustedSeconds: totalMinutes * 60,
+        pauseCount: sessionData.pauseCount,
+        status: 'completed',
+        distributions: Object.entries(distributions)
+          .filter(([_, minutes]) => minutes > 0)
+          .map(([subjectId, minutes]) => ({ subjectId, minutes })),
+        bonusXP: bonusXP
+      };
+
+      // Save timer session
+      await StorageManager.add(StorageManager.STORES.TIMER_SESSIONS, timerSession);
+
+      // Add study logs for each subject
+      let leveledUp = false;
+      let newLevel = 0;
+
+      for (const [subjectId, minutes] of Object.entries(distributions)) {
+        if (minutes > 0) {
+          const result = await App.addStudyLog(subjectId, minutes);
+          if (result && result.leveledUp) {
+            leveledUp = true;
+            newLevel = result.newLevel;
+          }
+        }
+      }
+
+      // Add bonus XP
+      if (bonusXP > 0) {
+        App.catState.experience += bonusXP;
+        await App.saveCatState();
+      }
+
+      // Clear session data
+      sessionStorage.removeItem('studycat_timerSession');
+
+      // Show success
+      showToast('記録したにゃ！お疲れ様！✨');
+
+      // Check for level up
+      if (leveledUp) {
+        document.getElementById('levelUpMessage').textContent = `レベル${newLevel}になったにゃ！`;
+        document.getElementById('levelUpModal').classList.add('active');
+      } else {
+        // Navigate to home after short delay
+        setTimeout(() => window.location.href = 'index.html', 1500);
+      }
+    }
+
+    function closeLevelUpModal() {
+      document.getElementById('levelUpModal').classList.remove('active');
+      window.location.href = 'index.html';
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    // Warn before leaving page with unsaved data
+    window.addEventListener('beforeunload', (e) => {
+      if (sessionData) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', initReviewPage);
+  </script>
+</body>
+</html>
