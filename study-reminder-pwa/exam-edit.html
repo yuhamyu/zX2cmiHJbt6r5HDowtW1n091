@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#4CAF50">
+  <title>テスト編集 - StudyCat</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <h1 id="pageTitle">テストを追加</h1>
+    <div class="header-sub">試験の詳細を入力</div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Exam Name -->
+    <div class="card">
+      <div class="form-group">
+        <label class="form-label">テスト名</label>
+        <input type="text" class="form-input" id="examName"
+               placeholder="例: 2学期中間テスト">
+      </div>
+    </div>
+
+    <!-- Exam Type -->
+    <div class="card">
+      <div class="card-title">テストの種類</div>
+      <div class="exam-type-buttons">
+        <button type="button" class="exam-type-btn selected" data-type="regular">
+          <span class="exam-type-icon">📝</span>
+          <span class="exam-type-label">定期テスト</span>
+        </button>
+        <button type="button" class="exam-type-btn" data-type="mock">
+          <span class="exam-type-icon">📊</span>
+          <span class="exam-type-label">模試</span>
+        </button>
+        <button type="button" class="exam-type-btn" data-type="entrance">
+          <span class="exam-type-icon">🎯</span>
+          <span class="exam-type-label">入試</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Exam Dates -->
+    <div class="card">
+      <div class="card-title">試験日</div>
+
+      <div class="form-group">
+        <div class="checkbox-item" style="margin-bottom: 16px;">
+          <input type="checkbox" id="dateUndecided" onchange="toggleDateUndecided()">
+          <label for="dateUndecided">日付未定</label>
+        </div>
+      </div>
+
+      <div id="dateInputs">
+        <div class="form-group">
+          <label class="form-label">1日目</label>
+          <input type="date" class="form-input" id="date1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">2日目（任意）</label>
+          <input type="date" class="form-input" id="date2">
+        </div>
+        <div class="form-group">
+          <label class="form-label">3日目（任意）</label>
+          <input type="date" class="form-input" id="date3">
+        </div>
+      </div>
+    </div>
+
+    <!-- Review Period -->
+    <div class="card">
+      <div class="card-title">復習期間</div>
+      <div class="form-group">
+        <label class="form-label">試験の何日前から復習期間にする？</label>
+        <div class="review-days-input">
+          <button type="button" class="time-btn" onclick="adjustReviewDays(-1)">-</button>
+          <span class="review-days-value" id="reviewDaysValue">3</span>
+          <span class="review-days-unit">日前</span>
+          <button type="button" class="time-btn" onclick="adjustReviewDays(1)">+</button>
+        </div>
+        <p class="form-hint">復習期間に入ると、ホーム画面に通知が表示されます</p>
+      </div>
+    </div>
+
+    <!-- Subjects -->
+    <div class="card">
+      <div class="card-title">対象教科</div>
+      <p class="form-hint" style="margin-bottom: 12px;">このテストで使う教科を選んでください</p>
+      <div id="subjectCheckboxes" class="subject-checkbox-grid">
+        <!-- Subject checkboxes will be inserted here -->
+      </div>
+      <button type="button" class="btn btn-secondary btn-block mt-16" onclick="toggleAllSubjects()">
+        全て選択 / 解除
+      </button>
+    </div>
+
+    <!-- Subject Weights (optional, shown when subjects selected) -->
+    <div class="card" id="weightsCard" style="display: none;">
+      <div class="card-title">教科別の重み付け（任意）</div>
+      <p class="form-hint" style="margin-bottom: 12px;">
+        このテスト用に重要度を調整できます。<br>
+        設定しない場合は通常の重み付けが使われます。
+      </p>
+      <div id="subjectWeights">
+        <!-- Weight sliders will be inserted here -->
+      </div>
+    </div>
+
+    <!-- Error Message -->
+    <div class="alert alert-danger" id="errorMessage" style="display: none;"></div>
+
+    <!-- Buttons -->
+    <button class="btn btn-primary btn-block btn-lg" onclick="saveExam()">
+      保存
+    </button>
+
+    <a href="exams.html" class="btn btn-secondary btn-block mt-16">
+      キャンセル
+    </a>
+  </main>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Scripts -->
+  <script src="js/storage.js"></script>
+  <script src="js/calculator.js"></script>
+  <script src="js/cat.js"></script>
+  <script src="js/exam.js"></script>
+  <script src="js/migration.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    let editingExamId = null;
+    let selectedType = 'regular';
+    let reviewDays = 3;
+
+    async function initEditPage() {
+      await App.init();
+
+      // Check if editing existing exam
+      const urlParams = new URLSearchParams(window.location.search);
+      editingExamId = urlParams.get('id');
+
+      if (editingExamId) {
+        document.getElementById('pageTitle').textContent = 'テストを編集';
+        loadExamData(editingExamId);
+      }
+
+      renderSubjectCheckboxes();
+      setupTypeButtons();
+    }
+
+    function loadExamData(examId) {
+      const exam = App.exams.find(e => e.id === examId);
+      if (!exam) {
+        showToast('テストが見つかりません');
+        setTimeout(() => window.location.href = 'exams.html', 1000);
+        return;
+      }
+
+      // Fill form
+      document.getElementById('examName').value = exam.name;
+      selectedType = exam.type;
+      reviewDays = exam.reviewDays;
+      document.getElementById('reviewDaysValue').textContent = reviewDays;
+
+      // Type button
+      document.querySelectorAll('.exam-type-btn').forEach(btn => {
+        btn.classList.toggle('selected', btn.dataset.type === exam.type);
+      });
+
+      // Dates
+      if (exam.dateUndecided) {
+        document.getElementById('dateUndecided').checked = true;
+        toggleDateUndecided();
+      } else {
+        exam.dates.forEach((date, index) => {
+          const input = document.getElementById(`date${index + 1}`);
+          if (input) input.value = date;
+        });
+      }
+
+      // Subject checkboxes will be checked after render
+      setTimeout(() => {
+        exam.subjectIds.forEach(id => {
+          const checkbox = document.querySelector(`input[data-subject-id="${id}"]`);
+          if (checkbox) checkbox.checked = true;
+        });
+        updateWeightsCard();
+
+        // Set weights
+        Object.entries(exam.subjectWeights || {}).forEach(([id, weight]) => {
+          const slider = document.querySelector(`input[data-weight-subject-id="${id}"]`);
+          if (slider) {
+            slider.value = weight;
+            updateWeightLabel(id, weight);
+          }
+        });
+      }, 100);
+    }
+
+    function setupTypeButtons() {
+      document.querySelectorAll('.exam-type-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.exam-type-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          selectedType = btn.dataset.type;
+        });
+      });
+    }
+
+    function renderSubjectCheckboxes() {
+      const container = document.getElementById('subjectCheckboxes');
+      container.innerHTML = App.subjects.map(subject => `
+        <div class="subject-checkbox-item">
+          <input type="checkbox" id="subject_${subject.id}"
+                 data-subject-id="${subject.id}"
+                 onchange="updateWeightsCard()">
+          <label for="subject_${subject.id}">
+            <span class="subject-color-dot" style="background-color: ${subject.color}"></span>
+            ${subject.name}
+          </label>
+        </div>
+      `).join('');
+    }
+
+    function toggleAllSubjects() {
+      const checkboxes = document.querySelectorAll('#subjectCheckboxes input[type="checkbox"]');
+      const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+      checkboxes.forEach(cb => cb.checked = !allChecked);
+      updateWeightsCard();
+    }
+
+    function updateWeightsCard() {
+      const selectedIds = getSelectedSubjectIds();
+      const card = document.getElementById('weightsCard');
+      const container = document.getElementById('subjectWeights');
+
+      if (selectedIds.length === 0) {
+        card.style.display = 'none';
+        return;
+      }
+
+      card.style.display = 'block';
+
+      container.innerHTML = selectedIds.map(id => {
+        const subject = App.subjects.find(s => s.id === id);
+        if (!subject) return '';
+
+        const defaultWeight = subject.weight || 5;
+        return `
+          <div class="weight-slider-item">
+            <div class="weight-slider-header">
+              <span class="subject-color-dot" style="background-color: ${subject.color}"></span>
+              <span class="weight-slider-name">${subject.name}</span>
+              <span class="weight-slider-value" id="weight_label_${id}">${defaultWeight}</span>
+            </div>
+            <input type="range" class="weight-slider" min="1" max="10"
+                   value="${defaultWeight}"
+                   data-weight-subject-id="${id}"
+                   oninput="updateWeightLabel('${id}', this.value)">
+          </div>
+        `;
+      }).join('');
+    }
+
+    function updateWeightLabel(subjectId, value) {
+      const label = document.getElementById(`weight_label_${subjectId}`);
+      if (label) label.textContent = value;
+    }
+
+    function getSelectedSubjectIds() {
+      const checkboxes = document.querySelectorAll('#subjectCheckboxes input:checked');
+      return Array.from(checkboxes).map(cb => cb.dataset.subjectId);
+    }
+
+    function toggleDateUndecided() {
+      const undecided = document.getElementById('dateUndecided').checked;
+      const dateInputs = document.getElementById('dateInputs');
+      dateInputs.style.display = undecided ? 'none' : 'block';
+    }
+
+    function adjustReviewDays(delta) {
+      reviewDays = Math.max(0, Math.min(30, reviewDays + delta));
+      document.getElementById('reviewDaysValue').textContent = reviewDays;
+    }
+
+    function getExamDates() {
+      const dates = [];
+      for (let i = 1; i <= 3; i++) {
+        const input = document.getElementById(`date${i}`);
+        if (input && input.value) {
+          dates.push(input.value);
+        }
+      }
+      return dates.sort();
+    }
+
+    function getSubjectWeights() {
+      const weights = {};
+      document.querySelectorAll('input[data-weight-subject-id]').forEach(slider => {
+        const id = slider.dataset.weightSubjectId;
+        const value = parseInt(slider.value, 10);
+        // Only save if different from default
+        const subject = App.subjects.find(s => s.id === id);
+        if (subject && value !== subject.weight) {
+          weights[id] = value;
+        }
+      });
+      return weights;
+    }
+
+    async function saveExam() {
+      const name = document.getElementById('examName').value.trim();
+      const dateUndecided = document.getElementById('dateUndecided').checked;
+      const dates = dateUndecided ? [] : getExamDates();
+      const subjectIds = getSelectedSubjectIds();
+      const subjectWeights = getSubjectWeights();
+
+      const examData = {
+        id: editingExamId || undefined,
+        name,
+        type: selectedType,
+        dates,
+        dateUndecided,
+        subjectIds,
+        subjectWeights,
+        reviewDays
+      };
+
+      // Validate
+      const validation = ExamManager.validate(examData);
+      if (!validation.valid) {
+        const errorDiv = document.getElementById('errorMessage');
+        errorDiv.innerHTML = validation.errors.join('<br>');
+        errorDiv.style.display = 'block';
+        window.scrollTo(0, errorDiv.offsetTop - 100);
+        return;
+      }
+
+      // Save
+      if (editingExamId) {
+        await App.updateExam(editingExamId, examData);
+        showToast('テストを更新しました');
+      } else {
+        await App.addExam(examData);
+        showToast('テストを追加しました');
+      }
+
+      setTimeout(() => window.location.href = 'exams.html', 1000);
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', initEditPage);
+  </script>
+</body>
+</html>

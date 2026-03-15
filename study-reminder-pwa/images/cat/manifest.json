@@ -1,0 +1,29 @@
+{
+  "idle": {
+    "frames": 96,
+    "cols": 10,
+    "rows": 10,
+    "frameSize": 200,
+    "fps": 30,
+    "durationMs": 3200,
+    "loop": true
+  },
+  "isshoni": {
+    "frames": 60,
+    "cols": 10,
+    "rows": 6,
+    "frameSize": 200,
+    "fps": 30,
+    "durationMs": 2000,
+    "loop": false
+  },
+  "omedetou": {
+    "frames": 60,
+    "cols": 10,
+    "rows": 6,
+    "frameSize": 200,
+    "fps": 30,
+    "durationMs": 2000,
+    "loop": false
+  }
+}
