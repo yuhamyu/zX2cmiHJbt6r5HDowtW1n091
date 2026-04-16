@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#4CAF50">
+  <title>初期設定 - StudyCat</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <h1>初期設定</h1>
+    <div class="header-sub">はじめに設定しようにゃ！</div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content" style="padding-bottom: 100px;">
+    <!-- Welcome -->
+    <div class="card">
+      <div class="cat-container">
+        <div class="cat-image">😺</div>
+        <div class="cat-message">一緒に頑張ろうにゃ！</div>
+      </div>
+    </div>
+
+    <!-- Setup Form -->
+    <form id="setupForm">
+      <!-- Exam Date -->
+      <div class="card">
+        <div class="form-group">
+          <label class="form-label">📅 試験日</label>
+          <input type="date" id="examDate" class="form-input" required>
+          <div class="form-hint">高校受験の日を入力してね</div>
+        </div>
+      </div>
+
+      <!-- Cram School Days -->
+      <div class="card">
+        <div class="form-group">
+          <label class="form-label">🏫 塾の日</label>
+          <div class="checkbox-group">
+            <div class="checkbox-item">
+              <input type="checkbox" id="day-monday" value="monday">
+              <label for="day-monday">月</label>
+            </div>
+            <div class="checkbox-item">
+              <input type="checkbox" id="day-tuesday" value="tuesday" checked>
+              <label for="day-tuesday">火</label>
+            </div>
+            <div class="checkbox-item">
+              <input type="checkbox" id="day-wednesday" value="wednesday">
+              <label for="day-wednesday">水</label>
+            </div>
+            <div class="checkbox-item">
+              <input type="checkbox" id="day-thursday" value="thursday" checked>
+              <label for="day-thursday">木</label>
+            </div>
+            <div class="checkbox-item">
+              <input type="checkbox" id="day-friday" value="friday">
+              <label for="day-friday">金</label>
+            </div>
+            <div class="checkbox-item">
+              <input type="checkbox" id="day-saturday" value="saturday" checked>
+              <label for="day-saturday">土</label>
+            </div>
+            <div class="checkbox-item">
+              <input type="checkbox" id="day-sunday" value="sunday">
+              <label for="day-sunday">日</label>
+            </div>
+          </div>
+          <div class="form-hint">塾がある曜日を選択してね</div>
+        </div>
+      </div>
+
+      <!-- Study Hours -->
+      <div class="card">
+        <div class="form-group">
+          <label class="form-label">⏰ 塾がない日の勉強時間</label>
+          <select id="normalHours" class="form-input">
+            <option value="1.5">1時間30分</option>
+            <option value="2">2時間</option>
+            <option value="2.5">2時間30分</option>
+            <option value="3" selected>3時間</option>
+            <option value="3.5">3時間30分</option>
+            <option value="4">4時間</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">⏰ 塾の日の勉強時間</label>
+          <select id="cramHours" class="form-input">
+            <option value="0.5">30分</option>
+            <option value="1">1時間</option>
+            <option value="1.5" selected>1時間30分</option>
+            <option value="2">2時間</option>
+            <option value="2.5">2時間30分</option>
+          </select>
+          <div class="form-hint">塾の宿題以外の自主学習時間</div>
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <button type="submit" class="btn btn-primary btn-block btn-lg">
+        次へ（教科設定）→
+      </button>
+    </form>
+  </main>
+
+  <!-- Scripts -->
+  <script src="js/storage.js"></script>
+  <script src="js/calculator.js"></script>
+  <script src="js/cat.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    let existingConfig = null;
+
+    document.getElementById('setupForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // Get values
+      const examDate = document.getElementById('examDate').value;
+      const normalHours = parseFloat(document.getElementById('normalHours').value);
+      const cramHours = parseFloat(document.getElementById('cramHours').value);
+
+      // Get cram school days
+      const cramSchoolDays = [];
+      document.querySelectorAll('.checkbox-group input:checked').forEach(cb => {
+        cramSchoolDays.push(cb.value);
+      });
+
+      // Build weekly hours
+      const weeklyHours = {
+        monday: cramSchoolDays.includes('monday') ? cramHours : normalHours,
+        tuesday: cramSchoolDays.includes('tuesday') ? cramHours : normalHours,
+        wednesday: cramSchoolDays.includes('wednesday') ? cramHours : normalHours,
+        thursday: cramSchoolDays.includes('thursday') ? cramHours : normalHours,
+        friday: cramSchoolDays.includes('friday') ? cramHours : normalHours,
+        saturday: cramSchoolDays.includes('saturday') ? cramHours : normalHours,
+        sunday: cramSchoolDays.includes('sunday') ? cramHours : normalHours
+      };
+
+      // Save config (preserve existing startDate and createdAt if updating)
+      const config = {
+        id: 'main',
+        examDate: examDate,
+        startDate: existingConfig?.startDate || Calculator.getTodayString(),
+        bufferDays: existingConfig?.bufferDays || 7,
+        weeklyHours: weeklyHours,
+        cramSchoolDays: cramSchoolDays,
+        createdAt: existingConfig?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      await StorageManager.save(StorageManager.STORES.CONFIG, config);
+
+      // Go to subject setup
+      window.location.href = 'setup-subjects.html';
+    });
+
+    // Load existing config or set defaults
+    document.addEventListener('DOMContentLoaded', async () => {
+      await StorageManager.init();
+      existingConfig = await StorageManager.load(StorageManager.STORES.CONFIG, null);
+
+      if (existingConfig && existingConfig.examDate) {
+        // Load existing values
+        document.getElementById('examDate').value = existingConfig.examDate;
+
+        // Load cram school days
+        document.querySelectorAll('.checkbox-group input').forEach(cb => {
+          cb.checked = existingConfig.cramSchoolDays?.includes(cb.value) || false;
+        });
+
+        // Load study hours (detect from weeklyHours)
+        const cramDays = existingConfig.cramSchoolDays || [];
+        const weeklyHours = existingConfig.weeklyHours || {};
+
+        // Find normal hours (from a non-cram day)
+        const normalDay = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+          .find(d => !cramDays.includes(d));
+        const normalHours = normalDay ? weeklyHours[normalDay] : 3.0;
+
+        // Find cram hours (from a cram day)
+        const cramDay = cramDays[0];
+        const cramHours = cramDay ? weeklyHours[cramDay] : 1.5;
+
+        document.getElementById('normalHours').value = normalHours;
+        document.getElementById('cramHours').value = cramHours;
+      } else {
+        // Set default exam date (1 year from now, March 10)
+        const nextYear = new Date();
+        nextYear.setFullYear(nextYear.getFullYear() + 1);
+        nextYear.setMonth(2); // March
+        nextYear.setDate(10);
+        document.getElementById('examDate').value = nextYear.toISOString().split('T')[0];
+      }
+    });
+  </script>
+</body>
+</html>
